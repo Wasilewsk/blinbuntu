@@ -99,25 +99,18 @@ case "${LB_BINARY_IMAGES}" in
     hdd*|*) _BOOTLOADER="syslinux"; _SUFFIX="binary/syslinux" ;;
 esac
 
-# Install syslinux into the chroot
-if [ "${LB_BUILD_WITH_CHROOT}" = "true" ]; then
-    chroot chroot apt-get install -y --no-install-recommends syslinux 2>/dev/null || \
-    chroot chroot apt-get install -y syslinux 2>/dev/null || true
-fi
-
 mkdir -p ${_SUFFIX}
 
-# Copy basic isolinux files from the chroot
+# Copy isolinux files from host system (already installed as build dep)
 for f in isolinux.bin ldlinux.c32 libcom32.c32 libutil.c32 \
          menu.c32 reboot.c32 poweroff.c32 chain.c32; do
-    if [ "${LB_BUILD_WITH_CHROOT}" = "true" ]; then
-        cp "chroot/usr/lib/ISOLINUX/${f}" ${_SUFFIX}/ 2>/dev/null || \
-        cp "chroot/usr/lib/syslinux/${f}" ${_SUFFIX}/ 2>/dev/null || \
-        cp "chroot/usr/lib/syslinux/bios/${f}" ${_SUFFIX}/ 2>/dev/null || true
-    else
-        cp "/usr/lib/ISOLINUX/${f}" ${_SUFFIX}/ 2>/dev/null || \
-        cp "/usr/lib/syslinux/${f}" ${_SUFFIX}/ 2>/dev/null || true
-    fi
+    for dir in /usr/lib/ISOLINUX /usr/lib/syslinux /usr/lib/syslinux/bios \
+               /usr/share/syslinux; do
+        if [ -f "${dir}/${f}" ]; then
+            cp -f "${dir}/${f}" ${_SUFFIX}/
+            break
+        fi
+    done
 done
 
 # Minimal boot config
@@ -131,6 +124,10 @@ LABEL live
   APPEND boot=live components quiet splash
 LIVECFG
 ENDOFSYSLINUX
+    # Ensure isohybrid is in PATH (it's in /usr/lib/ISOLINUX/ on Ubuntu)
+    if [ -f /usr/lib/ISOLINUX/isohybrid ]; then
+        ln -sf /usr/lib/ISOLINUX/isohybrid /usr/local/bin/isohybrid 2>/dev/null || true
+    fi
     chmod +x /usr/lib/live/build/lb_binary_syslinux
 
     # Also set LB_BOOTLOADERS
