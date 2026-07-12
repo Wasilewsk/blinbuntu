@@ -84,36 +84,46 @@ setup_build() {
 
     ok "live-build configured."
 
-    # Debug: dump config/common to find the right variable name
-    info "=== config/common contents ==="
-    cat "${BUILD_DIR}/config/common"
-    info "=== END config/common ==="
-    info "=== config/bootloaders ==="
-    ls -la "${BUILD_DIR}/config/bootloaders/" 2>/dev/null || echo "No bootloaders dir"
+    # Debug: dump config structure
+    info "=== config/ contents ==="
+    ls -la "${BUILD_DIR}/config/"
+    info "=== config/LB_* files ==="
+    ls "${BUILD_DIR}/config/LB_"* 2>/dev/null && for f in "${BUILD_DIR}/config/LB_"*; do echo "  $f = $(cat "$f")"; done || echo "No LB_* files"
     info "=== binary dirs ==="
     ls -d "${BUILD_DIR}"/config/binary* 2>/dev/null || echo "No binary dirs"
 
-    # Live-build 3.0~a57 on Ubuntu: remove the syslinux binary directory
-    # to prevent it from running. We only want GRUB EFI.
+    # Find live-build's main script to understand its library path
+    LB_BIN=$(which lb 2>/dev/null || echo "/usr/bin/lb")
+    info "lb binary: ${LB_BIN}"
+    head -5 "${LB_BIN}" 2>/dev/null || true
+    # Find the library directory from the lb script
+    LB_LIB=$(grep -oP 'LIB_DIR="\K[^"]+' "${LB_BIN}" 2>/dev/null || \
+             grep -oP 'LIBDIR="\K[^"]+' "${LB_BIN}" 2>/dev/null || \
+             grep -oP 'share/live/build' "${LB_BIN}" 2>/dev/null || true)
+    info "Live-build lib hint: ${LB_LIB}"
+    # Try common locations
+    for d in /usr/lib/live/build /usr/share/live/build /usr/share/perl5/live; do
+        if [ -d "$d" ]; then
+            info "Found live-build scripts in: $d"
+            ls "$d/" | head -20
+            grep -rl 'binary_syslinux\|syslinux' "$d/" 2>/dev/null | head -10
+        fi
+    done
+    info "=== END DEBUG ==="
+
+    # Disable syslinux: remove directory + set LB_BOOTLOADERS
     info "Disabling syslinux bootloader (GRUB EFI only)..."
     rm -rf "${BUILD_DIR}/config/binary_syslinux"
 
-    # Also set LB_BOOTLOADERS in config/common (try all known variable names)
-    sed -i 's/^LB_BOOTLOADERS=.*/LB_BOOTLOADERS="grub-efi"/' "${BUILD_DIR}/config/common" 2>/dev/null || true
+    # In live-build 3.0, config values may be in individual files like config/LB_BOOTLOADERS
+    echo "grub-efi" > "${BUILD_DIR}/config/LB_BOOTLOADERS"
+    # Also set in config/common as backup
+    echo 'LB_BOOTLOADERS="grub-efi"' >> "${BUILD_DIR}/config/common"
 
-    # Find the live-build scripts and patch out syslinux if it's hardcoded
-    LB_SCRIPTS=$(find /usr/lib/live/build -name "lb_binary*" -type f 2>/dev/null | head -5)
-    for script in $LB_SCRIPTS; do
-        if grep -q 'lb_binary_syslinux' "$script" 2>/dev/null; then
-            info "Patching live-build script: $script"
-            sed -i 's/lb_binary_syslinux/lb_binary_syslinux_disabled/' "$script"
-        fi
-    done
-    # Also check /usr/share/live/build
-    LB_SCRIPTS2=$(find /usr/share/live/build -name "lb_binary*" -type f 2>/dev/null | head -5)
-    for script in $LB_SCRIPTS2; do
-        if grep -q 'lb_binary_syslinux' "$script" 2>/dev/null; then
-            info "Patching live-build script: $script"
+    # Nuclear option: find and patch any live-build script that calls lb_binary_syslinux
+    dpkg -L live-build 2>/dev/null | while read script; do
+        if [ -f "$script" ] && grep -q 'lb_binary_syslinux' "$script" 2>/dev/null; then
+            info "Patching: $script"
             sed -i 's/lb_binary_syslinux/lb_binary_syslinux_disabled/' "$script"
         fi
     done
