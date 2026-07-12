@@ -84,27 +84,39 @@ setup_build() {
 
     ok "live-build configured."
 
-    # Ubuntu 26.04 resolute lacks gfxboot-theme-ubuntu and syslinux-themes-ubuntu-oneiric.
-    # live-build 3.0~a57 always runs lb_binary_syslinux regardless of LB_BOOTLOADERS.
-    # Add Ubuntu noble (24.04) as a fallback source so apt can find the real packages.
-    info "Adding Ubuntu noble fallback repo for syslinux packages..."
-    mkdir -p "${BUILD_DIR}/config/archives"
-    echo "deb http://archive.ubuntu.com/ubuntu noble main restricted universe multiverse" \
-        > "${BUILD_DIR}/config/archives/ubuntu-noble-fallback.list.chroot"
-    echo "deb http://archive.ubuntu.com/ubuntu noble main restricted universe multiverse" \
-        > "${BUILD_DIR}/config/archives/ubuntu-noble-fallback.list.binary"
+    # Debug: dump config/common to find the right variable name
+    info "=== config/common contents ==="
+    cat "${BUILD_DIR}/config/common"
+    info "=== END config/common ==="
+    info "=== config/bootloaders ==="
+    ls -la "${BUILD_DIR}/config/bootloaders/" 2>/dev/null || echo "No bootloaders dir"
+    info "=== binary dirs ==="
+    ls -d "${BUILD_DIR}"/config/binary* 2>/dev/null || echo "No binary dirs"
 
-    # Pin resolute packages above noble so we don't accidentally downgrade anything
-    mkdir -p "${BUILD_DIR}/config/includes.chroot/etc/apt/preferences.d"
-    cat > "${BUILD_DIR}/config/includes.chroot/etc/apt/preferences.d/pin-resolute.pref" << 'PINFIX'
-Package: *
-Pin: release n=resolute
-Pin-Priority: 900
+    # Live-build 3.0~a57 on Ubuntu: remove the syslinux binary directory
+    # to prevent it from running. We only want GRUB EFI.
+    info "Disabling syslinux bootloader (GRUB EFI only)..."
+    rm -rf "${BUILD_DIR}/config/binary_syslinux"
 
-Package: *
-Pin: release n=noble
-Pin-Priority: 100
-PINFIX
+    # Also set LB_BOOTLOADERS in config/common (try all known variable names)
+    sed -i 's/^LB_BOOTLOADERS=.*/LB_BOOTLOADERS="grub-efi"/' "${BUILD_DIR}/config/common" 2>/dev/null || true
+
+    # Find the live-build scripts and patch out syslinux if it's hardcoded
+    LB_SCRIPTS=$(find /usr/lib/live/build -name "lb_binary*" -type f 2>/dev/null | head -5)
+    for script in $LB_SCRIPTS; do
+        if grep -q 'lb_binary_syslinux' "$script" 2>/dev/null; then
+            info "Patching live-build script: $script"
+            sed -i 's/lb_binary_syslinux/lb_binary_syslinux_disabled/' "$script"
+        fi
+    done
+    # Also check /usr/share/live/build
+    LB_SCRIPTS2=$(find /usr/share/live/build -name "lb_binary*" -type f 2>/dev/null | head -5)
+    for script in $LB_SCRIPTS2; do
+        if grep -q 'lb_binary_syslinux' "$script" 2>/dev/null; then
+            info "Patching live-build script: $script"
+            sed -i 's/lb_binary_syslinux/lb_binary_syslinux_disabled/' "$script"
+        fi
+    done
 }
 
 # Apply custom configuration
