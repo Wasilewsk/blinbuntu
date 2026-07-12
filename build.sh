@@ -55,7 +55,9 @@ install_build_deps() {
         wget \
         curl \
         ca-certificates \
-        gnupg
+        gnupg \
+        equivs \
+        dpkg-dev
     ok "Build dependencies installed."
 }
 
@@ -85,24 +87,63 @@ setup_build() {
     ok "live-build configured."
 
     # Fix: Ubuntu 26.04 resolute lacks gfxboot-theme-ubuntu and syslinux themes.
-    # live-build 3.0~a57 on Ubuntu stores config in config/common.
-    # Must set LB_BOOTLOADERS to prevent syslinux build.
-    python3 -c "
-import re
-path = '${BUILD_DIR}/config/common'
-with open(path, 'r') as f:
-    content = f.read()
-# Remove any existing LB_BOOTLOADERS line
-content = re.sub(r'^LB_BOOTLOADERS=.*\n?', '', content, flags=re.MULTILINE)
-# Append our setting
-content += '\nLB_BOOTLOADERS=\"grub-efi\"\n'
-with open(path, 'w') as f:
-    f.write(content)
-print('LB_BOOTLOADERS set to grub-efi in config/common')
-"
+    # live-build 3.0~a57 always runs lb_binary_syslinux regardless of config.
+    # Solution: create dummy .deb packages and add as local apt repo.
 
-    # Also remove the binary_syslinux directory that lb config created
-    rm -rf "${BUILD_DIR}/config/binary_syslinux"
+    info "Creating dummy packages for syslinux dependencies..."
+
+    DUMMY_REPO="${BUILD_DIR}/dummy-repo"
+    mkdir -p "${DUMMY_REPO}"
+
+    WORK=$(mktemp -d)
+
+    # Create dummy gfxboot-theme-ubuntu
+    cat > "${WORK}/gfxboot-theme-ubuntu.cfg" << 'EOF'
+Section: utils
+Priority: optional
+Standards-Version: 3.9.2
+Package: gfxboot-theme-ubuntu
+Version: 42
+Depends: adduser
+Description: Dummy gfxboot-theme-ubuntu for Blinbuntu live-build
+EOF
+
+    # Create dummy syslinux-themes-ubuntu-oneiric
+    cat > "${WORK}/syslinux-themes-ubuntu-oneiric.cfg" << 'EOF'
+Section: utils
+Priority: optional
+Standards-Version: 3.9.2
+Package: syslinux-themes-ubuntu-oneiric
+Version: 42
+Depends: syslinux-common
+Description: Dummy syslinux-themes-ubuntu-oneiric for Blinbuntu live-build
+EOF
+
+    cd "${WORK}"
+    equivs-build gfxboot-theme-ubuntu.cfg 2>/dev/null || true
+    equivs-build syslinux-themes-ubuntu-oneiric.cfg 2>/dev/null || true
+
+    cp "${WORK}"/*.deb "${DUMMY_REPO}/" 2>/dev/null || true
+
+    # Create Packages.gz for local repo
+    cd "${DUMMY_REPO}"
+    dpkg-scanpackages . /dev/null 2>/dev/null | gzip -9 > Packages.gz 2>/dev/null || true
+
+    rm -rf "${WORK}"
+
+    # Add local repo to build's apt sources
+    mkdir -p "${BUILD_DIR}/config/archives"
+    cat > "${BUILD_DIR}/config/archives/dummy-syslinux.list.chroot" << ARCHIVE
+deb [trusted=yes] file:${DUMMY_REPO} ./
+ARCHIVE
+
+    # Also add for binary stage
+    cat > "${BUILD_DIR}/config/archives/dummy-syslinux.list.binary" << ARCHIVE
+deb [trusted=yes] file:${DUMMY_REPO} ./
+ARCHIVE
+
+    info "Dummy repo created at ${DUMMY_REPO}"
+    ls -la "${DUMMY_REPO}/"
 }
 
 # Apply custom configuration
