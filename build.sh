@@ -84,13 +84,25 @@ setup_build() {
 
     ok "live-build configured."
 
-    # Remove syslinux binary directory to prevent syslinux build
-    rm -rf "${BUILD_DIR}/config/binary_syslinux"
+    # Fix: Ubuntu 26.04 resolute lacks gfxboot-theme-ubuntu and syslinux themes.
+    # live-build 3.0~a57 on Ubuntu stores config in config/common.
+    # Must set LB_BOOTLOADERS to prevent syslinux build.
+    python3 -c "
+import re
+path = '${BUILD_DIR}/config/common'
+with open(path, 'r') as f:
+    content = f.read()
+# Remove any existing LB_BOOTLOADERS line
+content = re.sub(r'^LB_BOOTLOADERS=.*\n?', '', content, flags=re.MULTILINE)
+# Append our setting
+content += '\nLB_BOOTLOADERS=\"grub-efi\"\n'
+with open(path, 'w') as f:
+    f.write(content)
+print('LB_BOOTLOADERS set to grub-efi in config/common')
+"
 
-    # Set LB_BOOTLOADERS to grub-efi only (syslinux themes unavailable in resolute)
-    echo '' >> "${BUILD_DIR}/config/common"
-    echo '# Blinbuntu: grub-efi only, syslinux disabled' >> "${BUILD_DIR}/config/common"
-    echo 'LB_BOOTLOADERS="grub-efi"' >> "${BUILD_DIR}/config/common"
+    # Also remove the binary_syslinux directory that lb config created
+    rm -rf "${BUILD_DIR}/config/binary_syslinux"
 }
 
 # Apply custom configuration
