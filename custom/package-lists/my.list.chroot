@@ -13,18 +13,15 @@ gnupg
 lsb-release
 software-properties-common
 apt-transport-https
-dpkg-repack
 
 # ── MATE Desktop ──────────────────────────────────────────────────────────────
 ubuntu-mate-desktop
-ubuntu-mate-lightdm-greeter
 mate-panel
 mate-desktop
 mate-terminal
 caja
 pluma
 atril
-eye-of-mate
 eom
 engrampa
 mate-screensaver
@@ -36,7 +33,6 @@ mate-applets
 mate-system-monitor
 mate-power-manager
 network-manager-gnome
-nm-tray
 blueman
 gnome-font-viewer
 gvfs-backends
@@ -46,21 +42,16 @@ gvfs-backends
 fenrir
 speech-dispatcher
 speech-dispatcher-espeak-ng
-speech-dispatcher-festival
 espeak-ng
 espeak-ng-data
 brltty
-brltty-x11
-accessibility-profiles
 orca
-# Orca is included as fallback; Cthulhu replaces it as primary screenreader
 
 # ── Audio / Video ─────────────────────────────────────────────────────────────
 pulseaudio
 pulseaudio-utils
 pavucontrol
 alsa-utils
-alsamixer
 mpg123
 mpv
 playerctl
@@ -73,12 +64,10 @@ xinput
 xclip
 xsel
 arandr
-nitrogen
 
 # ── Keyboard & Locale (ALL layouts) ───────────────────────────────────────────
 xkb-data
 x11-xkb-utils
-xkb-utils
 console-setup
 console-data
 keyboard-configuration
@@ -93,8 +82,6 @@ network-manager
 network-manager-gnome
 openssh-client
 openssh-server
-wget
-curl
 
 # ── Development Tools ─────────────────────────────────────────────────────────
 git
@@ -104,22 +91,16 @@ gcc
 g++
 python3
 python3-pip
-python3-venv
-cargo
-rustc
 pkg-config
-cmake
 
 # ── Installer ─────────────────────────────────────────────────────────────────
 ubiquity
 ubiquity-frontend-gtk
-ubiquity-frontend-kde
 ubiquity-slideshow-ubuntu-mate
 
 # ── System Utilities ──────────────────────────────────────────────────────────
 gparted
 htop
-neofetch
 mc
 nano
 vim
@@ -127,15 +108,11 @@ unzip
 p7zip-full
 file-roller
 gnome-disk-utility
-gsmartcontrol
 baobab
 lshw
-lstopo
 inxi
-hardinfo
 
 # ── File Manager Extras ───────────────────────────────────────────────────────
-file-roller
 gvfs-fuse
 gvfs-backends
 
@@ -150,6 +127,5 @@ blueman
 
 # ── Theming ───────────────────────────────────────────────────────────────────
 mate-icon-theme
-humanity-icon-theme
 ubuntu-mate-themes
 plymouth-themes
