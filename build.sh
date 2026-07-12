@@ -46,6 +46,8 @@ install_build_deps() {
         xorriso \
         isolinux \
         syslinux-efi \
+        syslinux-common \
+        syslinux \
         grub-efi-amd64-bin \
         grub-pc-bin \
         mtools \
@@ -92,33 +94,46 @@ setup_build() {
     info "Pre-creating binary/isolinux with host syslinux files..."
     mkdir -p "${BUILD_DIR}/binary/isolinux"
 
-    # Find isolinux.bin from the host's isolinux package
+    # Find isolinux.bin from the host's isolinux package and copy explicitly
     for dir in /usr/lib/ISOLINUX /usr/lib/syslinux /usr/share/syslinux /usr/lib/syslinux/bios; do
         if [ -f "${dir}/isolinux.bin" ]; then
-            cp -aL "${dir}/" "${BUILD_DIR}/binary/isolinux/"
-            ok "Copied syslinux files from ${dir}"
+            cp -f "${dir}/isolinux.bin" "${BUILD_DIR}/binary/isolinux/isolinux.bin"
+            ok "Copied isolinux.bin from ${dir}"
             break
         fi
     done
 
     if [ ! -f "${BUILD_DIR}/binary/isolinux/isolinux.bin" ]; then
-        # Try dpkg to find the file
-        ISOLINUX_DIR=$(dpkg -L isolinux 2>/dev/null | grep -m1 '/ISOLINUX$' || true)
-        if [ -n "$ISOLINUX_DIR" ] && [ -d "$ISOLINUX_DIR" ]; then
-            cp -aL "${ISOLINUX_DIR}/" "${BUILD_DIR}/binary/isolinux/"
-            ok "Copied syslinux files from dpkg path ${ISOLINUX_DIR}"
+        ISOLINUX_PATH=$(dpkg -L isolinux 2>/dev/null | grep 'isolinux.bin$' | head -1 || true)
+        if [ -n "$ISOLINUX_PATH" ] && [ -f "$ISOLINUX_PATH" ]; then
+            cp -f "$ISOLINUX_PATH" "${BUILD_DIR}/binary/isolinux/isolinux.bin"
+            ok "Copied isolinux.bin from dpkg path ${ISOLINUX_PATH}"
         fi
     fi
 
-    # Also copy any .c32 module files from syslinux-common
+    # Copy ldlinux and .c32 modules from syslinux-common
     for dir in /usr/lib/syslinux /usr/lib/syslinux/modules/bios /usr/share/syslinux; do
         if [ -d "$dir" ]; then
-            cp -aL "${dir}"/*.c32 "${BUILD_DIR}/binary/isolinux/" 2>/dev/null || true
-            cp -aL "${dir}"/*.com "${BUILD_DIR}/binary/isolinux/" 2>/dev/null || true
+            cp -f "${dir}"/ldlinux.c32 "${BUILD_DIR}/binary/isolinux/" 2>/dev/null || true
+            cp -f "${dir}"/ldlinux.sys "${BUILD_DIR}/binary/isolinux/" 2>/dev/null || true
+            cp -f "${dir}"/*.c32 "${BUILD_DIR}/binary/isolinux/" 2>/dev/null || true
         fi
     done
 
-    ls -la "${BUILD_DIR}/binary/isolinux/" || warn "binary/isolinux is empty!"
+    # Also check /usr/lib/ISOLINUX for any additional files
+    if [ -d /usr/lib/ISOLINUX ]; then
+        for f in /usr/lib/ISOLINUX/*; do
+            [ -f "$f" ] && cp -f "$f" "${BUILD_DIR}/binary/isolinux/" 2>/dev/null || true
+        done
+    fi
+
+    # Verify isolinux.bin is present
+    if [ -f "${BUILD_DIR}/binary/isolinux/isolinux.bin" ]; then
+        ok "isolinux.bin verified in binary/isolinux/"
+    else
+        err "CRITICAL: isolinux.bin not found in binary/isolinux/"
+    fi
+    ls -la "${BUILD_DIR}/binary/isolinux/" 2>&1 | head -5 || warn "binary/isolinux is empty!"
 
     # Create minimal live.cfg for isolinux
     cat > "${BUILD_DIR}/binary/isolinux/live.cfg" << 'LIVECFG'
@@ -132,19 +147,102 @@ LABEL live
 LIVECFG
 
     # Ensure isohybrid is in PATH
-    for dir in /usr/lib/ISOLINUX /usr/lib/syslinux /usr/bin; do
+    ISOHYBRID_FOUND=false
+    for dir in /usr/lib/ISOLINUX /usr/lib/syslinux /usr/bin /usr/sbin /usr/local/bin; do
         if [ -f "${dir}/isohybrid" ]; then
-            ln -sf "${dir}/isohybrid" /usr/local/bin/isohybrid
+            cp -f "${dir}/isohybrid" /usr/local/bin/isohybrid
+            chmod +x /usr/local/bin/isohybrid
+            ISOHYBRID_FOUND=true
+            ok "isohybrid installed from ${dir}"
             break
         fi
     done
+    if [ "$ISOHYBRID_FOUND" = false ]; then
+        # Try to find via dpkg
+        ISOHYBRID_PATH=$(dpkg -S isohybrid 2>/dev/null | head -1 | cut -d: -f2 | tr -d ' ' || true)
+        if [ -n "$ISOHYBRID_PATH" ] && [ -f "$ISOHYBRID_PATH" ]; then
+            cp -f "$ISOHYBRID_PATH" /usr/local/bin/isohybrid
+            chmod +x /usr/local/bin/isohybrid
+            ok "isohybrid installed from dpkg path ${ISOHYBRID_PATH}"
+        else
+            warn "isohybrid not found — ISO may not be made bootable"
+        fi
+    fi
 
-    # Replace lb_binary_syslinux with a no-op since we pre-created the files
-    cat > /usr/lib/live/build/lb_binary_syslinux << 'NOOP'
+    # Replace lb_binary_syslinux with a standalone script that copies real syslinux files
+    # from the host (which has isolinux + syslinux-common installed as build deps).
+    # The original script fails because gfxboot-theme-ubuntu and syslinux-themes-ubuntu-oneiric
+    # don't exist for Ubuntu 26.04 resolute.
+    info "Replacing lb_binary_syslinux with resolute-compatible version..."
+    cat > /usr/lib/live/build/lb_binary_syslinux << 'SYSLINUXSCRIPT'
 #!/bin/sh
-# Pre-created binary/isolinux in setup_build — skip this step
-exit 0
-NOOP
+# Replacement lb_binary_syslinux for Ubuntu 26.04 resolute
+# Copies real syslinux/isolinux files from the host system into binary/isolinux/
+
+_SUFFIX="binary/isolinux"
+case "${LB_BINARY_IMAGES}" in
+    iso*) _BOOTLOADER="isolinux"; _SUFFIX="binary/isolinux" ;;
+    net*) _BOOTLOADER="pxelinux"; _SUFFIX="tftpboot" ;;
+    hdd*|*) _BOOTLOADER="syslinux"; _SUFFIX="binary/syslinux" ;;
+esac
+
+mkdir -p "${_SUFFIX}"
+
+# Copy isolinux.bin
+for dir in /usr/lib/ISOLINUX /usr/lib/syslinux /usr/share/syslinux; do
+    if [ -f "${dir}/isolinux.bin" ]; then
+        cp -f "${dir}/isolinux.bin" "${_SUFFIX}/isolinux.bin"
+        echo "[lb_binary_syslinux] Copied isolinux.bin from ${dir}"
+        break
+    fi
+done
+
+if [ ! -f "${_SUFFIX}/isolinux.bin" ]; then
+    # Fallback: search via dpkg
+    _PATH=$(dpkg -L isolinux 2>/dev/null | grep 'isolinux.bin$' | head -1 || true)
+    if [ -n "$_PATH" ] && [ -f "$_PATH" ]; then
+        cp -f "$_PATH" "${_SUFFIX}/isolinux.bin"
+        echo "[lb_binary_syslinux] Copied isolinux.bin from dpkg: ${_PATH}"
+    fi
+fi
+
+if [ ! -f "${_SUFFIX}/isolinux.bin" ]; then
+    echo "[lb_binary_syslinux] ERROR: isolinux.bin not found!" >&2
+    exit 1
+fi
+
+# Copy ldlinux.c32 and other .c32 modules
+for dir in /usr/lib/syslinux /usr/lib/syslinux/modules/bios /usr/share/syslinux; do
+    if [ -d "$dir" ]; then
+        cp -f "${dir}"/ldlinux.c32 "${_SUFFIX}/" 2>/dev/null || true
+        cp -f "${dir}"/ldlinux.sys "${_SUFFIX}/" 2>/dev/null || true
+        cp -f "${dir}"/*.c32 "${_SUFFIX}/" 2>/dev/null || true
+    fi
+done
+
+# Copy any additional files from /usr/lib/ISOLINUX
+for _f in /usr/lib/ISOLINUX/*; do
+    [ -f "$_f" ] && cp -f "$_f" "${_SUFFIX}/" 2>/dev/null || true
+done
+
+# Create syslinux.cfg (live.cfg equivalent for syslinux)
+cat > "${_SUFFIX}/syslinux.cfg" << 'SYSLINUXCFG'
+DEFAULT live
+TIMEOUT 0
+PROMPT 0
+
+LABEL live
+  MENU LABEL ^Live - Try Blinbuntu without installing
+  LINUX /live/vmlinuz
+  INITRD /live/initrd
+  APPEND boot=live components quiet splash
+
+LABEL live-install
+  MENU LABEL ^Install Blinbuntu
+  LINUX /live/vmlinuz
+  INITRD /live/initrd
+  APPEND boot=live components quiet splash preseed/file=/cdrom/preseed/blinbuntu.seed
+SYSLINUXSCRIPT
     chmod +x /usr/lib/live/build/lb_binary_syslinux
 
     # Also set LB_BOOTLOADERS
