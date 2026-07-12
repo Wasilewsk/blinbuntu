@@ -73,7 +73,6 @@ setup_build() {
         --architectures "${ARCHITECTURE}" \
         --distribution "${UBUNTU_CODENAME}" \
         --archive-areas "main restricted universe multiverse" \
-        --bootloaders "grub-efi,syslinux" \
         --iso-application "${DISTRO_NAME}" \
         --iso-publisher "${DISTRO_NAME}; https://github.com/blinbuntu/blinbuntu" \
         --iso-volume "${DISTRO_NAME} ${DISTRO_VERSION}" \
@@ -83,11 +82,8 @@ setup_build() {
         --firmware-chroot true \
         --memtest none \
         --security true \
-        --updates true \
         --backports false \
-        --debian-installer live \
-        --iso-language "en_US.UTF-8" \
-        --iso-country "US"
+        --debian-installer live
 
     ok "live-build configured."
 }
