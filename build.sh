@@ -84,13 +84,24 @@ setup_build() {
 
     ok "live-build configured."
 
-    # Override bootloader to grub-efi only (syslinux themes unavailable in resolute)
-    grep -q 'LB_BOOTLOADERS' "${BUILD_DIR}/config/common" 2>/dev/null && \
-        sed -i 's/^LB_BOOTLOADERS=.*/LB_BOOTLOADERS="grub-efi"/' "${BUILD_DIR}/config/common" || \
-        echo 'LB_BOOTLOADERS="grub-efi"' >> "${BUILD_DIR}/config/common"
+    # Debug: show config/common bootloader setting
+    info "Current bootloader config:"
+    cat "${BUILD_DIR}/config/common" 2>/dev/null | grep -i bootloader || echo "(not found)"
 
-    # Remove syslinux binary hooks to prevent syslinux build
-    rm -f "${BUILD_DIR}/config/hooks/binary"*syslinux* 2>/dev/null || true
+    # Override bootloader to grub-efi only
+    # live-build on Ubuntu may use different config formats
+    if [ -f "${BUILD_DIR}/config/common" ]; then
+        # Remove any LB_BOOTLOADERS line and add our own
+        grep -v '^LB_BOOTLOADERS' "${BUILD_DIR}/config/common" > "${BUILD_DIR}/config/common.tmp" 2>/dev/null || true
+        echo 'LB_BOOTLOADERS="grub-efi"' >> "${BUILD_DIR}/config/common.tmp"
+        mv "${BUILD_DIR}/config/common.tmp" "${BUILD_DIR}/config/common"
+    fi
+
+    # Also write standalone config files (live-build checks these)
+    mkdir -p "${BUILD_DIR}/config/bootloaders"
+    rm -rf "${BUILD_DIR}/config/bootloaders"
+    mkdir -p "${BUILD_DIR}/config/bootloaders"
+    echo "grub-efi" > "${BUILD_DIR}/config/bootloaders.list"
 }
 
 # Apply custom configuration
@@ -154,7 +165,7 @@ apply_custom() {
 build_iso() {
     info "Building ISO image..."
     cd "${BUILD_DIR}"
-    lb build 2>&1 | tee "${SCRIPT_DIR}/build.log"
+    LB_BOOTLOADERS="grub-efi" lb build 2>&1 | tee "${SCRIPT_DIR}/build.log"
     ok "Build complete."
 
     # Find the generated ISO
