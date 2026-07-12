@@ -83,6 +83,9 @@ setup_build() {
         --backports false
 
     ok "live-build configured."
+
+    # Override bootloader to grub-efi only (syslinux themes unavailable in resolute)
+    sed -i 's|^LB_BOOTLOADERS=.*|LB_BOOTLOADERS="grub-efi"|' "${BUILD_DIR}/config/common"
 }
 
 # Apply custom configuration
