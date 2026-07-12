@@ -103,11 +103,7 @@ Arguments "${@}"
 Read_conffiles config/all config/common config/bootstrap config/chroot config/binary config/source
 Set_defaults
 
-if [ "${LB_BOOTLOADER}" != "syslinux" ]; then
-    exit 0
-fi
-
-Echo_message "Begin installing syslinux..."
+Echo_message "Begin installing syslinux (resolute-compatible)..."
 
 Require_stagefile .stage/config .stage/bootstrap
 Check_stagefile .stage/binary_syslinux
@@ -153,10 +149,8 @@ case "${LB_BUILD_WITH_CHROOT}" in
         cat > ${_SUFFIX}/live.cfg << 'LIVECFG'
 DEFAULT live
 MENU LABEL ^Live
-MENU BACKGROUND f390b6d82d824b58a244952d1f80e58b.png
-MENU COLOR sel 7;36;40
 LABEL live
-  MENU LABEL ^Live - Try Ubuntu without installing
+  MENU LABEL ^Live - Try Blinbuntu without installing
   LINUX /live/vmlinuz
   INITRD /live/initrd
   APPEND boot=live components quiet splash
