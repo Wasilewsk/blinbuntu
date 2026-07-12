@@ -100,18 +100,19 @@ setup_build() {
     info "Disabling syslinux bootloader (GRUB EFI only)..."
     rm -rf "${BUILD_DIR}/config/binary_syslinux"
 
-    # In live-build 3.0, config values may be in individual files like config/LB_BOOTLOADERS
-    echo "grub-efi" > "${BUILD_DIR}/config/LB_BOOTLOADERS"
-    # Also set in config/common as backup
-    echo 'LB_BOOTLOADERS="grub-efi"' >> "${BUILD_DIR}/config/common"
-
-    # Nuclear option: patch the lb_binary script directly to skip syslinux
-    if [ -f /usr/lib/live/build/lb_binary ]; then
-        if grep -q 'lb_binary_syslinux' /usr/lib/live/build/lb_binary; then
-            info "Patching /usr/lib/live/build/lb_binary to disable syslinux"
-            sed -i 's/lb_binary_syslinux/lb_binary_syslinux_disabled/' /usr/lib/live/build/lb_binary
+    # Nuclear option: overwrite lb_binary_syslinux with a no-op
+    # This way even if lb_binary calls it, it just exits 0
+    for script in /usr/lib/live/build/lb_binary_syslinux; do
+        if [ -f "$script" ]; then
+            info "Replacing $script with no-op"
+            cp "$script" "${script}.bak"
+            printf '#!/bin/sh\nexit 0\n' > "$script"
+            chmod +x "$script"
         fi
-    fi
+    done
+
+    # Also set LB_BOOTLOADERS in config/binary (the actual binary stage config)
+    sed -i '1a LB_BOOTLOADERS="grub-efi"' "${BUILD_DIR}/config/binary"
 }
 
 # Apply custom configuration
