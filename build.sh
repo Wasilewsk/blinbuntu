@@ -146,39 +146,36 @@ LABEL live
   APPEND boot=live components quiet splash
 LIVECFG
 
-    # Ensure isohybrid is in PATH (needed by live-build binary.sh)
-    # Put wrapper in /usr/bin (not /usr/local/bin — live-build's PATH may not include it)
-    ISOHYBRID_FOUND=false
-    for dir in /usr/lib/ISOLINUX /usr/lib/syslinux /usr/bin /usr/sbin; do
-        if [ -f "${dir}/isohybrid" ]; then
-            cp -f "${dir}/isohybrid" /usr/bin/isohybrid
-            chmod +x /usr/bin/isohybrid
-            ISOHYBRID_FOUND=true
-            ok "isohybrid installed from ${dir}"
-            break
-        fi
-    done
-    if [ "$ISOHYBRID_FOUND" = false ]; then
-        ISOHYBRID_PATH=$(dpkg -S isohybrid 2>/dev/null | grep -v '^diversion' | head -1 | cut -d: -f2 | tr -d ' ' || true)
-        if [ -n "$ISOHYBRID_PATH" ] && [ -f "$ISOHYBRID_PATH" ]; then
-            cp -f "$ISOHYBRID_PATH" /usr/bin/isohybrid
-            chmod +x /usr/bin/isohybrid
-            ok "isohybrid installed from dpkg path ${ISOHYBRID_PATH}"
-        else
-            cat > /usr/bin/isohybrid << 'ISOHYBRIDWrapper'
+    # Ensure isohybrid is findable everywhere (live-build may run binary.sh with restricted PATH)
+    for _p in /usr/bin /bin /usr/sbin /sbin /usr/local/bin /usr/local/sbin; do
+        mkdir -p "$_p"
+        cat > "${_p}/isohybrid" << 'ISOHYBRIDWrapper'
 #!/bin/sh
 exit 0
 ISOHYBRIDWrapper
-            chmod +x /usr/bin/isohybrid
-            warn "isohybrid not found — created no-op wrapper in /usr/bin"
-        fi
-    fi
+        chmod +x "${_p}/isohybrid"
+    done
+    ok "isohybrid no-op wrapper installed in all PATH locations"
 
     # Patch binary.sh to skip isohybrid (it may not be available on Ubuntu resolute)
-    if [ -f /usr/lib/live/build/binary.sh ]; then
-        sed -i 's|\bisohybrid\b|true|g' /usr/lib/live/build/binary.sh 2>/dev/null || true
-        ok "Patched binary.sh to skip isohybrid"
-    fi
+    # binary.sh may be at /usr/lib/live/build/ or generated in the build dir
+    for _bsh in /usr/lib/live/build/binary.sh "${BUILD_DIR}/binary.sh"; do
+        if [ -f "$_bsh" ]; then
+            info "Found binary.sh at $_bsh — patching isohybrid call..."
+            sed -i '/^[[:space:]]*isohybrid[[:space:]]/s/isohybrid/true/' "$_bsh" 2>/dev/null || true
+            sed -i '/^[[:space:]]*\/.*isohybrid[[:space:]]/s/isohybrid/true/' "$_bsh" 2>/dev/null || true
+            ok "Patched $_bsh"
+        fi
+    done
+
+    # Also put isohybrid wrapper INSIDE the chroot (binary.sh may run there)
+    mkdir -p "${BUILD_DIR}/config/includes.chroot/usr/bin"
+    cat > "${BUILD_DIR}/config/includes.chroot/usr/bin/isohybrid" << 'ISOHYBRIDWrapper'
+#!/bin/sh
+exit 0
+ISOHYBRIDWrapper
+    chmod +x "${BUILD_DIR}/config/includes.chroot/usr/bin/isohybrid"
+    ok "isohybrid no-op wrapper added to chroot"
 
     # Replace lb_binary_syslinux with a standalone script that copies real syslinux files
     # from the host (which has isolinux + syslinux-common installed as build deps).
@@ -321,6 +318,8 @@ apply_custom() {
 build_iso() {
     info "Building ISO image..."
     cd "${BUILD_DIR}"
+    # Ensure isohybrid is findable in PATH
+    export PATH="/usr/bin:/usr/local/bin:/usr/sbin:/sbin:/bin:$PATH"
     LB_BOOTLOADERS="grub-efi" lb build 2>&1 | tee "${SCRIPT_DIR}/build.log"
     ok "Build complete."
 
