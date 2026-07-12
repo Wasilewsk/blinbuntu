@@ -84,39 +84,19 @@ setup_build() {
 
     ok "live-build configured."
 
-    # Disable syslinux binary step (gfxboot-theme-ubuntu and
-    # syslinux-themes-ubuntu-oneiric don't exist in Ubuntu 26.04 resolute)
-    info "Disabling syslinux binary step..."
-    rm -rf "${BUILD_DIR}/config/binary_syslinux"
-
-    # Overwrite lb_binary_syslinux with a no-op
-    for script in /usr/lib/live/build/lb_binary_syslinux; do
-        if [ -f "$script" ]; then
-            info "Replacing $script with no-op"
-            printf '#!/bin/sh\nexit 0\n' > "$script"
-            chmod +x "$script"
-        fi
-    done
-
-    # genisoimage needs an isolinux/ directory in the binary staging area.
-    # Create a minimal one from the syslinux package files on the host.
-    mkdir -p "${BUILD_DIR}/config/includes.binary/isolinux"
-    for f in isolinux.bin ldlinux.c32 libcom32.c32 libutil.c32 \
-             menu.c32 reboot.c32 poweroff.c32; do
-        src=$(find /usr/lib/ISOLINUX /usr/lib/syslinux /usr/lib/syslinux/bios \
-              -name "$f" 2>/dev/null | head -1)
-        if [ -n "$src" ]; then
-            cp "$src" "${BUILD_DIR}/config/includes.binary/isolinux/"
-        fi
-    done
-    cat > "${BUILD_DIR}/config/includes.binary/isolinux/isolinux.cfg" << 'ISOLINUX'
-DEFAULT live
-LABEL live
-    MENU LABEL Blinbuntu Live
-    LINUX /live/vmlinuz
-    INITRD /live/initrd
-    APPEND boot=live components
-ISOLINUX
+    # Ubuntu 26.04 resolute lacks gfxboot-theme-ubuntu and syslinux-themes-ubuntu-oneiric.
+    # Patch lb_binary_syslinux to remove those package names from its apt install,
+    # while keeping the rest of the syslinux setup intact.
+    info "Patching lb_binary_syslinux to remove unavailable packages..."
+    if [ -f /usr/lib/live/build/lb_binary_syslinux ]; then
+        # Remove the two missing packages from any apt/dpkg install lines
+        sed -i 's/ gfxboot-theme-ubuntu//g; s/ syslinux-themes-ubuntu-oneiric//g' \
+            /usr/lib/live/build/lb_binary_syslinux
+        sed -i 's/gfxboot-theme-ubuntu //g; s/syslinux-themes-ubuntu-oneiric //g' \
+            /usr/lib/live/build/lb_binary_syslinux
+        sed -i 's/gfxboot-theme-ubuntu//g; s/syslinux-themes-ubuntu-oneiric//g' \
+            /usr/lib/live/build/lb_binary_syslinux
+    fi
 
     # Also set LB_BOOTLOADERS
     echo 'LB_BOOTLOADERS="grub-efi"' >> "${BUILD_DIR}/config/binary"
