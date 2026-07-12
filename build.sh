@@ -84,13 +84,13 @@ setup_build() {
 
     ok "live-build configured."
 
-    # Debug: dump config directory structure and common file
-    info "Config directory contents:"
-    ls -la "${BUILD_DIR}/config/" 2>/dev/null || true
-    info "config/common content (first 50 lines):"
-    head -50 "${BUILD_DIR}/config/common" 2>/dev/null || echo "config/common does not exist"
-    info "config/bootloaders content:"
-    cat "${BUILD_DIR}/config/bootloaders" 2>/dev/null || echo "config/bootloaders does not exist"
+    # Remove syslinux binary directory to prevent syslinux build
+    rm -rf "${BUILD_DIR}/config/binary_syslinux"
+
+    # Set LB_BOOTLOADERS to grub-efi only (syslinux themes unavailable in resolute)
+    echo '' >> "${BUILD_DIR}/config/common"
+    echo '# Blinbuntu: grub-efi only, syslinux disabled' >> "${BUILD_DIR}/config/common"
+    echo 'LB_BOOTLOADERS="grub-efi"' >> "${BUILD_DIR}/config/common"
 }
 
 # Apply custom configuration
