@@ -142,8 +142,8 @@ DEFAULT live
 MENU LABEL ^Live
 LABEL live
   MENU LABEL ^Live - Try Blinbuntu without installing
-  LINUX /live/vmlinuz
-  INITRD /live/initrd
+  LINUX /casper/vmlinuz
+  INITRD /casper/initrd.img
   APPEND boot=live components quiet splash
 LIVECFG
 
@@ -242,14 +242,14 @@ PROMPT 0
 
 LABEL live
   MENU LABEL ^Live - Try Blinbuntu without installing
-  LINUX /live/vmlinuz
-  INITRD /live/initrd
+  LINUX /casper/vmlinuz
+  INITRD /casper/initrd.img
   APPEND boot=live components quiet splash
 
 LABEL live-install
   MENU LABEL ^Install Blinbuntu
-  LINUX /live/vmlinuz
-  INITRD /live/initrd
+  LINUX /casper/vmlinuz
+  INITRD /casper/initrd.img
   APPEND boot=live components quiet splash preseed/file=/cdrom/preseed/blinbuntu.seed
 SYSLINUXSCRIPT
     chmod +x /usr/lib/live/build/lb_binary_syslinux
@@ -311,27 +311,27 @@ set default=0
 set timeout=5
 
 menuentry "Try Blinbuntu without installing" {
-    linux /live/vmlinuz boot=live components quiet splash
-    initrd /live/initrd
+    linux /casper/vmlinuz boot=live components quiet splash
+    initrd /casper/initrd.img
 }
 
 menuentry "Try Blinbuntu without installing (safe graphics)" {
-    linux /live/vmlinuz boot=live components quiet splash nomodeset
-    initrd /live/initrd
+    linux /casper/vmlinuz boot=live components quiet splash nomodeset
+    initrd /casper/initrd.img
 }
 
 menuentry "Install Blinbuntu" {
-    linux /live/vmlinuz boot=live components quiet splash preseed/file=/cdrom/preseed/blinbuntu.seed
-    initrd /live/initrd
+    linux /casper/vmlinuz boot=live components quiet splash preseed/file=/cdrom/preseed/blinbuntu.seed
+    initrd /casper/initrd.img
 }
 
 menuentry "Check the disc for defects" {
-    linux /live/vmlinuz boot=live components quiet splash checkdisk
-    initrd /live/initrd
+    linux /casper/vmlinuz boot=live components quiet splash checkdisk
+    initrd /casper/initrd.img
 }
 
 menuentry "Memory test (memtest86+)" {
-    linux /live/memtest
+    linux /casper/memtest
 }
 GRUBCFG
 
@@ -464,6 +464,15 @@ build_iso() {
     export PATH="/usr/bin:/usr/local/bin:/usr/sbin:/sbin:/bin:$PATH"
     LB_BOOTLOADERS="grub-efi bios" lb build 2>&1 | tee "${SCRIPT_DIR}/build.log"
     ok "Build complete."
+
+    # Create version-agnostic symlinks in casper/ for isolinux/grub configs
+    if [ -d "${BUILD_DIR}/binary/casper" ]; then
+        cd "${BUILD_DIR}/binary/casper"
+        for vk in vmlinuz-*generic; do [ -f "$vk" ] && ln -sf "$vk" vmlinuz 2>/dev/null && break; done
+        for ik in initrd.img-*generic; do [ -f "$ik" ] && ln -sf "$ik" initrd.img 2>/dev/null && break; done
+        cd "${BUILD_DIR}"
+        ok "Created version-agnostic symlinks in binary/casper/"
+    fi
 
     # Find the ISO lb build created (exclude chroot)
     ISO_FILE=$(find "${BUILD_DIR}" -path "${BUILD_DIR}/chroot" -prune -o -name "*.iso" -type f -print | head -1)

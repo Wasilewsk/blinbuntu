@@ -82,18 +82,18 @@ if [ x$feature_platform_search_hint = xy ]; then
 fi
 
 menuentry "Try Blinbuntu without installing" {
-    linux /live/vmlinuz boot=live components quiet splash
-    initrd /live/initrd
+    linux /casper/vmlinuz boot=live components quiet splash
+    initrd /casper/initrd.img
 }
 
 menuentry "Try Blinbuntu without installing (safe graphics)" {
-    linux /live/vmlinuz boot=live components quiet splash nomodeset
-    initrd /live/initrd
+    linux /casper/vmlinuz boot=live components quiet splash nomodeset
+    initrd /casper/initrd.img
 }
 
 menuentry "Install Blinbuntu" {
-    linux /live/vmlinuz boot=live components quiet splash
-    initrd /live/initrd
+    linux /casper/vmlinuz boot=live components quiet splash
+    initrd /casper/initrd.img
 }
 GRUBCFG
 
