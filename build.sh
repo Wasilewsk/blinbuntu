@@ -50,6 +50,7 @@ install_build_deps() {
         syslinux \
         grub-efi-amd64-bin \
         grub-pc-bin \
+        grub-common \
         mtools \
         dosfstools \
         parted \
