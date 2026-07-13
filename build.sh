@@ -78,6 +78,7 @@ setup_build() {
         --iso-application "${DISTRO_NAME}" \
         --iso-publisher "${DISTRO_NAME}; https://github.com/blinbuntu/blinbuntu" \
         --iso-volume "${DISTRO_NAME} ${DISTRO_VERSION}" \
+        --bootloaders "grub-efi bios" \
         --apt-indices false \
         --apt-recommends true \
         --memtest none \
@@ -253,8 +254,9 @@ LABEL live-install
 SYSLINUXSCRIPT
     chmod +x /usr/lib/live/build/lb_binary_syslinux
 
-    # Also set LB_BOOTLOADERS
-    echo 'LB_BOOTLOADERS="grub-efi"' >> "${BUILD_DIR}/config/binary"
+    # Also set LB_BOOTLOADERS in binary config as a fallback
+    # (primary config is via --bootloaders in lb config above)
+    echo 'LB_BOOTLOADERS="grub-efi bios"' >> "${BUILD_DIR}/config/binary"
 }
 
 # Apply custom configuration
@@ -320,7 +322,7 @@ build_iso() {
     cd "${BUILD_DIR}"
     # Ensure isohybrid is findable in PATH
     export PATH="/usr/bin:/usr/local/bin:/usr/sbin:/sbin:/bin:$PATH"
-    LB_BOOTLOADERS="grub-efi" lb build 2>&1 | tee "${SCRIPT_DIR}/build.log"
+    LB_BOOTLOADERS="grub-efi bios" lb build 2>&1 | tee "${SCRIPT_DIR}/build.log"
     ok "Build complete."
 
     # Find the generated ISO (exclude chroot which may contain memtest86+ ISO)
