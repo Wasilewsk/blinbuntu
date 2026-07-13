@@ -54,7 +54,11 @@ jobs:
       - name: Generate checksums
         run: |
           ISO_PATH="${{ steps.iso.outputs.path }}"
-          sudo sha256sum "${ISO_PATH}" > "${ISO_PATH}.sha256"
+          sudo sha256sum "${ISO_PATH}" | sudo tee "${ISO_PATH}.sha256" > /dev/null
+
+      - name: Prepare ISO for upload
+        run: |
+          sudo chmod 644 "${{ steps.iso.outputs.path }}" "${{ steps.iso.outputs.path }}.sha256"
 
       - name: Upload ISO artifact
         uses: actions/upload-artifact@v4
