@@ -50,8 +50,6 @@ alsamixer
 # Accessibility
 orca
 espeak-ng
-espeak-ng-server
-espeak-ng-data
 brltty
 python3-brlapi
 
