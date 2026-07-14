@@ -91,7 +91,6 @@ plymouth-theme-charge
 linux-firmware
 
 # Fonts
-dejavu-fonts-common
 dejavu-sans-fonts
 dejavu-serif-fonts
 google-noto-sans-fonts
