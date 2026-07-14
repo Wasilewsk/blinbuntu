@@ -79,7 +79,7 @@ python3-gobject-devel
 
 # Audio tools
 sox
-ffmpeg
+ffmpeg-free
 
 # System
 NetworkManager
