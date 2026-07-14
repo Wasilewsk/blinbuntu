@@ -75,6 +75,9 @@ set timeout=10
 set gfxmode=auto
 load_video
 
+# Empire Strikes Back melody on boot (Jenux-style)
+play 1750 80 523 13 392 13 523 13 659 13 784 13 1047 13 784 13 415 13 523 13 622 13 831 13 622 13 831 13 1046 13 1244 13 1661 18 1244 13 466 13 587 13 698 13 932 13 1175 13 1397 13 1865 20 1397 20
+
 # Search for the live media
 search --no-floppy --set=root --label BLINBUNTU
 if [ x$feature_platform_search_hint = xy ]; then
@@ -110,7 +113,7 @@ ${GRUB_MKIMAGE} \
     -p "${EFIPREFIX}" \
     -c "${EARLY_CFG}" \
     -d "${GRUB_MODDIR}" \
-    iso9660 part_msdos part_gpt fat normal configfile \
+    iso9660 part_msdos part_gpt fat normal configfile play \
     search linux boot ls cat echo test gzio all_video video
 
 rm -f "${EARLY_CFG}"

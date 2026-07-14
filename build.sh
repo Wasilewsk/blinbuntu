@@ -331,6 +331,9 @@ cat > "${_GRUB_DIR}/efi/EFI/ubuntu/grub.cfg" << 'GRUBCFG'
 set default=0
 set timeout=5
 
+# Empire Strikes Back melody on boot (Jenux-style)
+play 1750 80 523 13 392 13 523 13 659 13 784 13 1047 13 784 13 415 13 523 13 622 13 831 13 622 13 831 13 1046 13 1244 13 1661 18 1244 13 466 13 587 13 698 13 932 13 1175 13 1397 13 1865 20 1397 20
+
 menuentry "Try Blinbuntu without installing" {
     linux /casper/vmlinuz boot=live components quiet splash
     initrd /casper/initrd.img
@@ -342,7 +345,7 @@ menuentry "Try Blinbuntu without installing (safe graphics)" {
 }
 
 menuentry "Install Blinbuntu" {
-    linux /casper/vmlinuz boot=live components quiet splash preseed/file=/cdrom/preseed/blinbuntu.seed
+    linux /casper/vmlinuz boot=live components quiet splash
     initrd /casper/initrd.img
 }
 
