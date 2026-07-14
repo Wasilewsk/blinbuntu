@@ -43,9 +43,8 @@ dracut-live
 
 # Audio
 pulseaudio
-pulseaudio-utils
 pavucontrol
-alsamixer
+alsa-utils
 
 # Accessibility
 orca
