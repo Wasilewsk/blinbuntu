@@ -1,18 +1,11 @@
 # ─── Blind Linux Kickstart ───────────────────────────────────────────────────
 # Fedora 44 live ISO with MATE desktop, Orca, accessibility-first.
-# Based on vojtux approach using livemedia-creator.
+# Based on vojtux principles.
 # ──────────────────────────────────────────────────────────────────────────────
 
 # Repositories
 repo --name=fedora --mirrorlist=https://mirrors.fedoraproject.org/mirrorlist?repo=fedora-44&arch=x86_64
 repo --name=updates --mirrorlist=https://mirrors.fedoraproject.org/mirrorlist?repo=updates-released-f44&arch=x86_64
-url --mirrorlist=https://mirrors.fedoraproject.org/mirrorlist?repo=fedora-44&arch=x86_64
-
-# RPM Fusion repos
-repo --name=rpmfusion-free --mirrorlist=https://mirrors.rpmfusion.org/metalink?repo=free-fedora-44&arch=x86_64
-repo --name=rpmfusion-free-updates --mirrorlist=https://mirrors.rpmfusion.org/metalink?repo=free-fedora-updates-released-44&arch=x86_64
-repo --name=rpmfusion-nonfree --mirrorlist=https://mirrors.rpmfusion.org/metalink?repo=nonfree-fedora-44&arch=x86_64
-repo --name=rpmfusion-nonfree-updates --mirrorlist=https://mirrors.rpmfusion.org/metalink?repo=nonfree-fedora-updates-released-44&arch=x86_64
 
 # System
 selinux --disabled

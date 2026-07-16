@@ -22,8 +22,7 @@ jobs:
       - name: Install dependencies
         run: |
           dnf install -y \
-            lorax-lmc-novirt \
-            pykickstart \
+            livecd-tools \
             squashfs-tools \
             xorriso \
             syslinux \
@@ -41,7 +40,7 @@ jobs:
       - name: Get ISO filename
         id: iso
         run: |
-          ISO_FILE=$(find . -maxdepth 1 -name "blindlinux-*.iso" -type f | head -1)
+          ISO_FILE=$(find . -maxdepth 1 -name "BlindLinux*.iso" -type f | head -1)
           if [ -z "${ISO_FILE}" ]; then
             echo "ERROR: No ISO file found"
             ls -la

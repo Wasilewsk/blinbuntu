@@ -2,15 +2,12 @@
 set -euo pipefail
 
 # ─── Blind Linux Build Script ────────────────────────────────────────────────
-# Builds a Fedora 44-based live ISO using livemedia-creator.
-# Based on vojtux approach.
+# Builds a Fedora 44-based live ISO using livecd-creator.
 # ──────────────────────────────────────────────────────────────────────────────
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 KS_FILE="${SCRIPT_DIR}/blindlinux.ks"
-ISO_NAME="blindlinux-44-x86_64.iso"
-TMPDIR="${SCRIPT_DIR}/live/tmp"
-FEDORA_RELEASE="44"
+ISO_LABEL="BlindLinux"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -31,8 +28,7 @@ fi
 install_deps() {
     info "Installing build dependencies..."
     dnf install -y \
-        lorax-lmc-novirt \
-        pykickstart \
+        livecd-tools \
         squashfs-tools \
         xorriso \
         syslinux \
@@ -54,27 +50,17 @@ copy_assets() {
 build() {
     copy_assets
 
-    info "Building Blind Linux ISO (Fedora ${FEDORA_RELEASE})..."
-    mkdir -p "${TMPDIR}"
-
-    livemedia-creator \
-        --make-iso \
-        --no-virt \
-        --iso-only \
-        --iso-name="${ISO_NAME}" \
-        --project="Blind Linux" \
-        --releasever="${FEDORA_RELEASE}" \
-        --ks="${KS_FILE}" \
-        --tmp="${TMPDIR}" \
-        --anaconda-arg="--noselinux" \
+    info "Building Blind Linux ISO (Fedora 44)..."
+    livecd-creator \
+        --config="${KS_FILE}" \
+        --fslabel="${ISO_LABEL}" \
         2>&1 | tee "${SCRIPT_DIR}/build.log"
 
-    ISO_FILE="${TMPDIR}/${ISO_NAME}"
-    if [ -f "${ISO_FILE}" ]; then
-        cp "${ISO_FILE}" "${SCRIPT_DIR}/"
-        ok "ISO: ${SCRIPT_DIR}/${ISO_FILE}"
-        sha256sum "${SCRIPT_DIR}/${ISO_FILE}" > "${SCRIPT_DIR}/${ISO_FILE}.sha256"
-        ok "Checksum: ${SCRIPT_DIR}/${ISO_FILE}.sha256"
+    ISO_FILE=$(find "${SCRIPT_DIR}" -maxdepth 1 -name "${ISO_LABEL}*.iso" -type f | head -1)
+    if [ -n "${ISO_FILE}" ]; then
+        ok "ISO: ${ISO_FILE}"
+        sha256sum "${ISO_FILE}" > "${ISO_FILE}.sha256"
+        ok "Checksum: ${ISO_FILE}.sha256"
     else
         err "No ISO file found after build."
         exit 1
@@ -83,8 +69,8 @@ build() {
 
 clean() {
     info "Cleaning build artifacts..."
-    rm -rf "${SCRIPT_DIR}/live" "${SCRIPT_DIR}/build.log"
-    rm -f "${SCRIPT_DIR}/blindlinux-"*.iso "${SCRIPT_DIR}/blindlinux-"*.iso.sha256
+    rm -f "${SCRIPT_DIR}/${ISO_LABEL}"*.iso "${SCRIPT_DIR}/${ISO_LABEL}"*.iso.sha256
+    rm -f "${SCRIPT_DIR}/build.log"
     ok "Clean complete."
 }
 
