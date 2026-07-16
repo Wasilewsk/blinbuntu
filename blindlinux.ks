@@ -58,7 +58,6 @@ espeak-ng
 brltty
 brltty-xw
 speech-dispatcher-utils
-a11y-sound-theme
 
 # Display manager
 -slick-greeter
