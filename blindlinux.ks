@@ -224,6 +224,6 @@ echo "=== Post-install complete ==="
 # ─── Cleanup ─────────────────────────────────────────────────────────────────
 %post --log=/root/ks-cleanup.log
 dnf clean all
-rm -rf /tmp/* /var/tmp/*
+rm -rf /var/tmp/*
 rm -rf /var/cache/dnf/*
 %end
