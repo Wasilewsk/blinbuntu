@@ -2,14 +2,14 @@
 set -euo pipefail
 
 # ─── Blind Linux Build Script ────────────────────────────────────────────────
-# Builds a Fedora 44-based live ISO with MATE, Cthulhu screenreader,
-# and accessibility-first design.
-# Uses livecd-creator (Fedora's live ISO tool).
+# Builds a Fedora 44-based live ISO using livemedia-creator.
+# Based on vojtux approach.
 # ──────────────────────────────────────────────────────────────────────────────
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-KS_FILE="${SCRIPT_DIR}/blindlinux.ks"
-ISO_LABEL="BlindLinux"
+KS_FILE="${SCRIPT_DIR}/blindlinux-en.ks"
+ISO_NAME="blindlinux-44-x86_64.iso"
+TMPDIR="${SCRIPT_DIR}/live/tmp"
 FEDORA_RELEASE="44"
 
 # Colors
@@ -32,7 +32,8 @@ fi
 install_deps() {
     info "Installing build dependencies..."
     dnf install -y \
-        livecd-tools \
+        lorax-lmc-novirt \
+        pykickstart \
         squashfs-tools \
         xorriso \
         syslinux \
@@ -43,25 +44,45 @@ install_deps() {
     ok "Dependencies installed."
 }
 
-build() {
+flatten_ks() {
+    info "Flattening kickstart files..."
+    ksflatten -c "${KS_FILE}" -o "${SCRIPT_DIR}/blindlinux-flat.ks"
+    ok "Flattened kickstart: blindlinux-flat.ks"
+}
+
+copy_assets() {
     info "Copying assets to staging area..."
     rm -rf /tmp/blindlinux-sounds
     mkdir -p /tmp/blindlinux-sounds
     cp "${SCRIPT_DIR}/start.mp3" "${SCRIPT_DIR}/logon.mp3" "${SCRIPT_DIR}/livestart.mp3" /tmp/blindlinux-sounds/ 2>/dev/null || warn "Sound files not found"
     cp "${SCRIPT_DIR}/Porta-Bop v3.0 linux.tar.gz" /tmp/ 2>/dev/null || warn "Porta-Bop tarball not found"
+}
+
+build() {
+    flatten_ks
+    copy_assets
 
     info "Building Blind Linux ISO (Fedora ${FEDORA_RELEASE})..."
-    livecd-creator \
-        --config="${KS_FILE}" \
-        --fslabel="${ISO_LABEL}" \
-        2>&1 | tee "${SCRIPT_DIR}/build.log"
-    ok "Build complete."
+    mkdir -p "${TMPDIR}"
 
-    ISO_FILE=$(find "${SCRIPT_DIR}" -maxdepth 1 -name "${ISO_LABEL}*.iso" -type f | head -1)
-    if [ -n "${ISO_FILE}" ]; then
-        ok "ISO: ${ISO_FILE}"
-        sha256sum "${ISO_FILE}" > "${ISO_FILE}.sha256"
-        ok "Checksum: ${ISO_FILE}.sha256"
+    livemedia-creator \
+        --make-iso \
+        --no-virt \
+        --iso-only \
+        --iso-name="${ISO_NAME}" \
+        --project="Blind Linux" \
+        --releasever="${FEDORA_RELEASE}" \
+        --ks="${SCRIPT_DIR}/blindlinux-flat.ks" \
+        --tmp="${TMPDIR}" \
+        --anaconda-arg="--noselinux" \
+        2>&1 | tee "${SCRIPT_DIR}/build.log"
+
+    ISO_FILE="${TMPDIR}/${ISO_NAME}"
+    if [ -f "${ISO_FILE}" ]; then
+        cp "${ISO_FILE}" "${SCRIPT_DIR}/"
+        ok "ISO: ${SCRIPT_DIR}/${ISO_FILE}"
+        sha256sum "${SCRIPT_DIR}/${ISO_FILE}" > "${SCRIPT_DIR}/${ISO_FILE}.sha256"
+        ok "Checksum: ${SCRIPT_DIR}/${ISO_FILE}.sha256"
     else
         err "No ISO file found after build."
         exit 1
@@ -70,8 +91,8 @@ build() {
 
 clean() {
     info "Cleaning build artifacts..."
-    rm -f "${SCRIPT_DIR}/${ISO_LABEL}"*.iso "${SCRIPT_DIR}/${ISO_LABEL}"*.iso.sha256
-    rm -f "${SCRIPT_DIR}/build.log"
+    rm -rf "${SCRIPT_DIR}/live" "${SCRIPT_DIR}/blindlinux-flat.ks" "${SCRIPT_DIR}/build.log"
+    rm -f "${SCRIPT_DIR}/blindlinux-"*.iso "${SCRIPT_DIR}/blindlinux-"*.iso.sha256
     ok "Clean complete."
 }
 
