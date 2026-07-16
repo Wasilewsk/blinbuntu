@@ -174,18 +174,50 @@ echo "Porta-Bop: /usr/share/blindlinux/games/"
 UTILITY
 chmod +x /usr/local/bin/blindlinux-welcome
 
-# Autostart livestart sound on login
+# Autostart all sounds
 mkdir -p /etc/xdg/autostart
+
+# Livestart sound on MATE session start
 cat > /etc/xdg/autostart/blindlinux-livestart.desktop << 'EOM'
 [Desktop Entry]
 Type=Application
-Name=Blind Linux Startup Sound
-Comment=Plays the startup sound
+Name=Blind Linux Live Start Sound
+Comment=Plays the live session start sound
 Exec=bash -c 'sleep 2 && cvlc --play-and-exit --no-video /usr/share/blindlinux/livestart.mp3 2>/dev/null || true'
 Hidden=false
 NoDisplay=true
 X-GNOME-Autostart-enabled=true
 EOM
+
+# Logon sound on login
+cat > /etc/xdg/autostart/blindlinux-logon.desktop << 'EOM'
+[Desktop Entry]
+Type=Application
+Name=Blind Linux Logon Sound
+Comment=Plays the login sound
+Exec=bash -c 'sleep 4 && cvlc --play-and-exit --no-video /usr/share/blindlinux/logon.mp3 2>/dev/null || true'
+Hidden=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+EOM
+
+# Boot sound via systemd (plays before login at boot)
+mkdir -p /usr/lib/systemd/system
+cat > /usr/lib/systemd/system/blindlinux-start-sound.service << 'EOM'
+[Unit]
+Description=Blind Linux Boot Sound
+After=graphical.target
+ConditionPathExists=/usr/share/blindlinux/start.mp3
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c '/usr/bin/cvlc --play-and-exit --no-video /usr/share/blindlinux/start.mp3'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=graphical.target
+EOM
+systemctl enable blindlinux-start-sound.service
 
 # Enable graphical target
 systemctl set-default graphical.target
